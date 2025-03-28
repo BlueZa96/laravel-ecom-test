@@ -1,0 +1,53 @@
+services:
+  app:
+    image: php:8.2-fpm
+    container_name: ecommerce_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/var/www/html
+    networks:
+      - ecommerce_network
+    depends_on:
+      - db
+    command: >
+      sh -c "php artisan migrate --force &&
+             php artisan storage:link &&
+             php artisan serve --host=0.0.0.0 --port=9000"
+    ports:
+      - "80:9000"
+
+  db:
+    image: mysql:8.0
+    container_name: ecommerce_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: ecommerce
+      MYSQL_USER: ecommerce_user
+      MYSQL_PASSWORD: ecommerce_password
+    volumes:
+      - ./dbdata:/var/lib/mysql
+      - ./backups/restore-db.sh:/docker-entrypoint-initdb.d/restore-db.sh # Добавляем скрипт восстановления
+      - ./backups/db-backup.sql:/docker-entrypoint-initdb.d/db-backup.sql # Добавляем скрипт восстановления
+    command: ["sh", "-c", "/docker-entrypoint-initdb.d/restore-db.sh && exec mysqld"]
+    networks:
+      - ecommerce_network
+    ports:
+      - "3306:3306"
+
+  composer:
+    image: composer:latest
+    container_name: ecommerce_composer
+    depends_on:
+      - app
+    volumes:
+      - ./src:/app
+    networks:
+      - ecommerce_network
+    entrypoint: ["composer", "install"]
+
+networks:
+  ecommerce_network:
+    driver: bridge

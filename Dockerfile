@@ -6,15 +6,31 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     zip \
     git \
-    curl && \
+    curl \
+    nodejs \
+    npm \
+    libpq-dev \
+    unzip && \   
     docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install gd pdo pdo_mysql && \
-    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer && \
-    apt-get install -y nodejs npm
+    docker-php-ext-install gd pdo pdo_pgsql && \
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 WORKDIR /var/www/html
+
 COPY ./src /var/www/html
 
-RUN composer install
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+RUN composer install --no-dev --optimize-autoloader
+
 RUN npm install && npm run build
+
 RUN composer global require laravel/installer
+
+ENV PATH="$PATH:/root/.composer/vendor/bin"
+
+RUN chmod +x artisan
+
+EXPOSE 9000
+
+CMD ["php-fpm"]
